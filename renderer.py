@@ -739,7 +739,10 @@ TEMPLATE = r"""<!DOCTYPE html>
     <div class="accom-grid">
       {% for a in accommodations %}
       <div class="accom-card">
-        <div class="accom-icon">{{ a.type_icon }}</div>
+        <div class="accom-icon" style="position:relative">
+          <span style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;background:#d4a574;color:#1a1d23;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ loop.index }}</span>
+          {{ a.type_icon }}
+        </div>
         <div class="accom-info">
           <div class="accom-name">{{ a.name }}{% if a.proximity_tag %}<span class="accom-tag {{ a.proximity_tag }}">{% if a.proximity_tag == 'onsite' %}Onsite Lodging{% else %}Slopeside{% endif %}</span>{% endif %}</div>
           <div class="accom-type">{{ a.type }}{% if a.stars %} · {{ a.stars }}★{% endif %}</div>
@@ -831,21 +834,28 @@ TEMPLATE = r"""<!DOCTYPE html>
 
   var resortIcon = L.divIcon({
     className: '',
-    html: '<div style="font-size:28px;text-shadow:0 2px 6px rgba(0,0,0,.5)">⛷️</div>',
-    iconSize: [28, 28], iconAnchor: [14, 14]
+    html: '<div style="width:40px;height:40px;background:#3b82f6;border:3px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.45);font-size:20px;line-height:1">⛷️</div>',
+    iconSize: [40, 40], iconAnchor: [20, 20]
   });
-  L.marker([{{ resort.lat }}, {{ resort.lon }}], { icon: resortIcon })
-    .addTo(map).bindPopup('<div class="popup-name">{{ resort.full_name }}</div><div class="popup-type">Ski Resort</div>');
+  L.marker([{{ resort.lat }}, {{ resort.lon }}], { icon: resortIcon, zIndexOffset: 1000 })
+    .addTo(map).bindPopup('<div class="popup-name">{{ resort.full_name }}</div><div class="popup-type">⛷️ Ski Resort</div>');
 
-  var accomIcon = L.divIcon({
-    className: '',
-    html: '<div style="font-size:22px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))">📍</div>',
-    iconSize: [22, 22], iconAnchor: [11, 22]
-  });
   var bounds = L.latLngBounds([[{{ resort.lat }}, {{ resort.lon }}]]);
 
+  function makeAccomIcon(num) {
+    return L.divIcon({
+      className: '',
+      html: '<div style="position:relative;width:30px;height:40px">'
+        + '<svg width="30" height="40" viewBox="0 0 30 40">'
+        + '<path d="M15 38 C15 38 2 24 2 14 A13 13 0 1 1 28 14 C28 24 15 38 15 38Z" fill="#d4a574" stroke="#fff" stroke-width="2"/>'
+        + '<text x="15" y="18" text-anchor="middle" fill="#1a1d23" font-family="Inter,sans-serif" font-size="12" font-weight="700">' + num + '</text>'
+        + '</svg></div>',
+      iconSize: [30, 40], iconAnchor: [15, 40], popupAnchor: [0, -36]
+    });
+  }
+
   var places = {{ accom_json }};
-  places.forEach(function(a) {
+  places.forEach(function(a, i) {
     var popup = '<div class="popup-name">' + a.name + '</div>'
       + '<div class="popup-type">' + a.type_icon + ' ' + a.type
       + (a.stars ? ' · ' + a.stars + '★' : '') + '</div>'
@@ -853,7 +863,7 @@ TEMPLATE = r"""<!DOCTYPE html>
     if (a.addr) popup += '<div class="popup-detail">' + a.addr + '</div>';
     if (a.phone) popup += '<div class="popup-detail">📞 ' + a.phone + '</div>';
     if (a.website) popup += '<div class="popup-detail"><a href="' + a.website + '" target="_blank">Visit Website ↗</a></div>';
-    L.marker([a.lat, a.lon], { icon: accomIcon }).addTo(map).bindPopup(popup);
+    L.marker([a.lat, a.lon], { icon: makeAccomIcon(i + 1) }).addTo(map).bindPopup(popup);
     bounds.extend([a.lat, a.lon]);
   });
 
