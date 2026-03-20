@@ -1,0 +1,29 @@
+# ─── Skicom Configuration ───────────────────────────────────────
+# Copy this file to config.yaml and fill in your settings:
+#   cp config.example.yaml config.yaml
+
+# LLM settings (OpenAI-compatible endpoint)
+llm:
+  enabled: false
+  api_base: "https://api.openai.com/v1"
+  api_key: "sk-your-key-here"
+  model: "gpt-5-mini"
+  max_tokens: 4096
+  system_prompt: >
+    You are a ski concierge. Summarize this ski resort data into a short,
+    friendly trip-planning brief. Cover: best ski days, snow outlook, what
+    to pack, and where to stay. Keep it under 200 words.
+
+# Weather settings (Open-Meteo, no API key needed)
+weather:
+  forecast_days: 7
+
+# Accommodation search radius in meters
+accommodations:
+  search_radius_m: 15000
+  max_results: 12
+
+# Output settings
+output:
+  directory: "./reports"
+  auto_open: true

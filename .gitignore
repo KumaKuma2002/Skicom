@@ -1,0 +1,23 @@
+# Secrets — NEVER commit these
+config.yaml
+.env
+*.env
+.env.*
+
+# Generated reports
+reports/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Temp files
+__skicom_tmp_cfg.yaml
+*.swp
+*.swo
+*~
+.DS_Store
