@@ -546,22 +546,34 @@ TEMPLATE = r"""<!DOCTYPE html>
       <span>📐 {{ resort.lat }}°N, {{ resort.lon | abs }}°W</span>
     </div>
     <div class="stat-bar">
+      {% if resort.elevation_ft %}
       <div class="stat-item">
         <div class="stat-value">{{ "{:,}".format(resort.elevation_ft) }}'</div>
         <div class="stat-label">Summit Elevation</div>
       </div>
+      {% endif %}
+      {% if resort.vertical_ft %}
+      <div class="stat-item">
+        <div class="stat-value">{{ "{:,}".format(resort.vertical_ft) }}'</div>
+        <div class="stat-label">Vertical Drop</div>
+      </div>
+      {% endif %}
+      {% if resort.trails %}
       <div class="stat-item">
         <div class="stat-value">{{ resort.trails }}</div>
         <div class="stat-label">Trails</div>
       </div>
+      {% endif %}
+      {% if resort.acres %}
       <div class="stat-item">
         <div class="stat-value">{{ "{:,}".format(resort.acres) }}</div>
         <div class="stat-label">Skiable Acres</div>
       </div>
-      {% if forecast.elevation_m %}
+      {% endif %}
+      {% if resort.lifts %}
       <div class="stat-item">
-        <div class="stat-value">{{ forecast.elevation_m | round | int }}m</div>
-        <div class="stat-label">Weather Stn.</div>
+        <div class="stat-value">{{ resort.lifts }}</div>
+        <div class="stat-label">Lifts</div>
       </div>
       {% endif %}
     </div>
@@ -834,16 +846,26 @@ def _render_txt(
     hr = "─" * W
     dhr = "═" * W
 
+    stats = [
+        f"  Location:    {resort['state']} · {resort.get('region', '')}",
+        f"  Coordinates: {resort['lat']}°N, {abs(resort['lon'])}°W",
+        f"  Elevation:   {resort.get('elevation_ft', 0):,} ft",
+    ]
+    if resort.get('vertical_ft'):
+        stats.append(f"  Vert. drop:  {resort['vertical_ft']:,} ft")
+    if resort.get('trails'):
+        stats.append(f"  Trails:      {resort['trails']}")
+    if resort.get('acres'):
+        stats.append(f"  Skiable:     {resort['acres']:,} acres")
+    if resort.get('lifts'):
+        stats.append(f"  Lifts:       {resort['lifts']}")
+
     lines = [
         dhr,
         f"  SKICOM — {resort['full_name']}".center(W),
         dhr,
         "",
-        f"  Location:    {resort['state']} · {resort.get('region', '')}",
-        f"  Coordinates: {resort['lat']}°N, {abs(resort['lon'])}°W",
-        f"  Elevation:   {resort['elevation_ft']:,} ft",
-        f"  Trails:      {resort.get('trails', '?')}",
-        f"  Skiable:     {resort.get('acres', '?'):,} acres",
+        *stats,
         "",
         hr,
         "  TRAIL MAP",
