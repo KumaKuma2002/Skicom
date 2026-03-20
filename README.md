@@ -1,68 +1,106 @@
+<div align="center">
+
 # Skicom
 
-**Plan your ski trip from the terminal.** One command. 386 resorts. No brochures.
+### `the only ski trip planner you need — if you'd rather run a script than open a travel site.`
+
+[![Python](https://img.shields.io/badge/python-3.9+-3776AB?logo=python&logoColor=white)](#quick-start)
+[![License: MIT](https://img.shields.io/badge/license-MIT-d4a574)](#license)
+[![Resorts](https://img.shields.io/badge/resorts-386-7eb8d8)](#resort-database)
+[![No API key needed](https://img.shields.io/badge/API%20keys-none%20required*-8fbc8f)](#stack)
+
+**One command. 386 resorts. Trail maps, snow forecasts, lodging, AI brief. Done.**
 
 ```bash
 python3 skicom.py "Jackson Hole"
 ```
 
+</div>
+
 ![Hero — Resort overview with trail map](docs/skicom_hero.png)
 
-## Why
+---
 
-You check `git status` more than the weather. You'd rather pipe JSON than browse travel sites. But when the snow dumps, you still need to know *where to go, when to go, and where to sleep*.
+## Contents
 
-Skicom pulls it all together in one shot — trail maps, forecasts, lodging, and an AI brief — then drops a clean report in your browser. No accounts. No ads. Just data.
+- [Why Skicom](#why-skicom)
+- [What You Get](#what-you-get)
+- [Quick Start](#quick-start) *(3 lines)*
+- [Usage](#usage)
+- [Config](#config)
+- [Resort Database](#resort-database)
+- [Stack](#stack)
+- [License](#license)
+
+---
+
+## Why Skicom
+
+You `grep` logs before breakfast. You think in pipes. You'd mass-rename 400 files before opening a GUI.
+
+But when Friday rolls around and the forecast says *powder* — you're stuck scrolling ad-heavy resort sites, juggling weather tabs, and comparing hotels like it's 2005.
+
+**Skicom fixes that.** One command, one report, everything you need:
+
+> trail map + 7-day snow forecast + nearby stays + AI trip brief → browser
+
+No accounts. No ads. No tracking. Open source, open data, runs offline (except the APIs). This is how skiers who write code plan trips.
+
+---
 
 ## What You Get
 
-**Trail map** — OpenSkiMap embed, centered on your resort. Runs, lifts, terrain.
+**Trail map** — OpenSkiMap embed centered on your resort. Runs, lifts, terrain at a glance.
 
-**7-day snow & weather** — Open-Meteo forecast with daily cards. Snow days highlighted. Best powder day pinned by date.
+**7-day snow & weather** — daily forecast cards from Open-Meteo. Snow days glow amber. Best powder day pinned by exact date.
 
 ![Forecast — 7-day weather cards with snow summary banner](docs/skicom_forecast.png)
 
-**Nearby stays** — Hotels, chalets, hostels from OpenStreetMap within configurable radius. Distance, contact, direct links.
+**Nearby stays** — hotels, chalets, hostels from OpenStreetMap. Distance, address, phone, and a "Visit Website" button.
 
 ![Stays — Accommodation cards with map and visit buttons](docs/skicom_stays.png)
 
-**AI trip brief** — Plug in any OpenAI-compatible LLM (OpenAI, Ollama, LM Studio, etc). Gets a short "best days to ski / what to pack / where to stay" summary.
+**AI trip brief** — plug in any OpenAI-compatible LLM. One-paragraph answer: best ski days, what to pack, where to sleep.
 
 ![Summary — AI-generated trip advisor card](docs/skicom_summary.png)
 
-**Dual output** — HTML with Nordic dark UI + falling snow, and a plaintext `.txt` for your terminal or clipboard.
+**Dual output** — HTML report with Nordic dark UI + falling snow, and a `.txt` you can `cat`, email, or paste into Slack.
+
+---
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/KumaKuma2002/Skicom.git
-cd Skicom
+git clone https://github.com/KumaKuma2002/Skicom.git && cd Skicom
 pip install -r requirements.txt
-
-# Optional: enable AI summary
-cp config.example.yaml config.yaml
-# Edit config.yaml → add your API key, set enabled: true
-
 python3 skicom.py "Mammoth"
 ```
 
-Works out of the box without config — you just won't get the LLM summary.
+That's it. Works instantly — no config, no API keys. The AI summary is optional (see [Config](#config)).
 
-### Usage
+---
+
+## Usage
 
 ```bash
 python3 skicom.py                        # interactive picker
 python3 skicom.py "Vail"                 # direct search
-python3 skicom.py "Crystal Mountain WA"  # state hint for disambiguation
-python3 skicom.py "breck"                # aliases work too
-python3 skicom.py --no-open "Stowe"      # skip auto-open browser
+python3 skicom.py "Crystal Mountain WA"  # state hint to disambiguate
+python3 skicom.py "breck"                # aliases work
+python3 skicom.py --no-open "Stowe"      # generate without opening browser
 ```
 
+---
+
 ## Config
+
+Only needed if you want the AI trip summary. Everything else works without it.
 
 ```bash
 cp config.example.yaml config.yaml
 ```
+
+Edit `config.yaml`:
 
 ```yaml
 llm:
@@ -71,22 +109,27 @@ llm:
   api_key: "sk-..."
   model: "gpt-5-mini"
   max_tokens: 4096
-
-weather:
-  forecast_days: 7
-
-accommodations:
-  search_radius_m: 15000
-  max_results: 12
-
-output:
-  directory: "./reports"
-  auto_open: true
 ```
+
+Other settings (weather days, search radius, output directory) have sensible defaults — see `config.example.yaml`.
+
+---
 
 ## Resort Database
 
-**386 resorts** across the US and Canada. Fuzzy name matching with alias support — `"a-basin"`, `"smuggs"`, `"squaw valley"`, `"bachelor"` all resolve. Add `", WA"` or `"washington"` to disambiguate when names collide (e.g. Crystal Mountain exists in both WA and MI).
+**386 resorts** across the US and Canada. Fuzzy matching with alias support:
+
+```
+"a-basin"       → Arapahoe Basin, CO
+"smuggs"        → Smugglers' Notch, VT
+"squaw valley"  → Palisades Tahoe, CA
+"bachelor"      → Mount Bachelor, OR
+"white pass WA" → White Pass Ski Area, WA
+```
+
+State hints (`", WA"` or `"washington"`) disambiguate when names collide.
+
+---
 
 ## Stack
 
@@ -99,7 +142,9 @@ output:
 | Resort search | [thefuzz](https://github.com/seatgeek/thefuzz) | Free |
 | UI | Jinja2 + hand-rolled Nordic CSS | Free |
 
-No API keys needed except for the optional LLM summary.
+*\*No API keys needed except for the optional LLM summary.*
+
+---
 
 ## License
 
