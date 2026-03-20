@@ -72,11 +72,14 @@ No accounts. No ads. No tracking. Open source, open data, runs offline (except t
 
 ```bash
 git clone https://github.com/KumaKuma2002/Skicom.git && cd Skicom
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python3 skicom.py "Mammoth"
 ```
 
 That's it. Works instantly — no config, no API keys. The AI summary is optional (see [Config](#config)).
+
+> **Windows?** Use `.venv\Scripts\activate` instead.
 
 ---
 
