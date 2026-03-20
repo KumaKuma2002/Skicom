@@ -103,12 +103,12 @@ def run(query: str | None = None, config_path: str = "config.yaml"):
 
     print(f"\n  ⏳ Fetching 7-day forecast for {resort['full_name']}...")
     try:
-        forecast = get_full_forecast(resort["lat"], resort["lon"], days=weather_days)
+        forecast = get_full_forecast(resort["lat"], resort["lon"], days=weather_days, resort=resort)
         snow = forecast["snow_summary"]
         print(f"  ✓ Forecast loaded — {snow['total_snowfall_in']}\" snow expected, {snow['snow_days_count']} snow days")
     except Exception as e:
         print(f"  ⚠ Weather fetch failed: {e}")
-        forecast = {"daily": [], "snow_summary": {"total_snowfall_in": 0, "snow_days_count": 0, "best_powder_day": None}, "timezone": "", "elevation_m": None}
+        forecast = {"daily": [], "snow_summary": {"total_snowfall_in": 0, "snow_days_count": 0, "best_powder_day": None, "base_depth_in": None, "summit_depth_in": None, "depth_source_ft": 0}, "timezone": "", "elevation_m": None}
 
     print(f"  ⏳ Searching for lodging within {search_radius / 1609.34:.0f} miles...")
     try:
@@ -149,11 +149,21 @@ def main():
     parser.add_argument("resort", nargs="?", help="Ski resort name to search for")
     parser.add_argument("--config", "-c", default="config.yaml", help="Path to config YAML (default: config.yaml)")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open the report in browser")
+    parser.add_argument("--no-llm", action="store_true", help="Skip LLM summary generation (saves tokens)")
     args = parser.parse_args()
 
+    overrides = {}
     if args.no_open:
+        overrides["no_open"] = True
+    if args.no_llm:
+        overrides["no_llm"] = True
+
+    if overrides:
         config = load_config(args.config)
-        config.setdefault("output", {})["auto_open"] = False
+        if overrides.get("no_open"):
+            config.setdefault("output", {})["auto_open"] = False
+        if overrides.get("no_llm"):
+            config.setdefault("llm", {})["enabled"] = False
         tmp_cfg = "__skicom_tmp_cfg.yaml"
         with open(tmp_cfg, "w") as f:
             yaml.dump(config, f)

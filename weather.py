@@ -89,14 +89,66 @@ def compute_snow_summary(daily_forecast: list[dict]) -> dict:
     }
 
 
-def get_full_forecast(lat: float, lon: float, days: int = 7) -> dict:
+def extract_snow_depth(raw: dict, resort: dict | None = None) -> dict:
+    """Extract current snow depth from hourly data and assign to base/summit."""
+    hourly = raw.get("hourly", {})
+    depths = hourly.get("snow_depth", [])
+    api_elev_m = raw.get("elevation", 0) or 0
+    api_elev_ft = round(api_elev_m * 3.281)
+
+    current_depth_m = None
+    for v in depths:
+        if v is not None and v >= 0:
+            current_depth_m = v
+            break
+
+    if current_depth_m is None or current_depth_m <= 0:
+        return {"base_depth_in": None, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+
+    depth_in = round(current_depth_m * 39.37)
+    MAX_REASONABLE_DEPTH = 500
+
+    summit_ft = (resort or {}).get("elevation_ft", 0) or 0
+    vertical_ft = (resort or {}).get("vertical_ft", 0) or 0
+    base_ft = summit_ft - vertical_ft if vertical_ft else 0
+
+    # Discard reading if API grid is >2000ft from any known resort elevation
+    ELEV_TOLERANCE = 2000
+    if summit_ft and base_ft:
+        if min(abs(api_elev_ft - summit_ft), abs(api_elev_ft - base_ft)) > ELEV_TOLERANCE:
+            return {"base_depth_in": None, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+    elif summit_ft:
+        if abs(api_elev_ft - summit_ft) > ELEV_TOLERANCE:
+            return {"base_depth_in": None, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+
+    if depth_in > MAX_REASONABLE_DEPTH:
+        depth_in = None
+
+    if depth_in is None:
+        return {"base_depth_in": None, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+
+    if summit_ft and base_ft:
+        dist_to_summit = abs(api_elev_ft - summit_ft)
+        dist_to_base = abs(api_elev_ft - base_ft)
+        if dist_to_summit <= dist_to_base:
+            return {"base_depth_in": None, "summit_depth_in": depth_in, "depth_source_ft": api_elev_ft}
+        else:
+            return {"base_depth_in": depth_in, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+    elif summit_ft:
+        return {"base_depth_in": None, "summit_depth_in": depth_in, "depth_source_ft": api_elev_ft}
+    else:
+        return {"base_depth_in": depth_in, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
+
+
+def get_full_forecast(lat: float, lon: float, days: int = 7, resort: dict | None = None) -> dict:
     """One-call convenience: fetch + parse + summarize."""
     raw = fetch_forecast(lat, lon, days)
     daily = parse_daily_forecast(raw)
     snow = compute_snow_summary(daily)
+    depth = extract_snow_depth(raw, resort)
     return {
         "daily": daily,
-        "snow_summary": snow,
+        "snow_summary": {**snow, **depth},
         "timezone": raw.get("timezone", ""),
         "elevation_m": raw.get("elevation", None),
     }

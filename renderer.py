@@ -1,5 +1,6 @@
 """Render ski resort report into a cozy Nordic-styled HTML file."""
 
+import json
 import os
 from datetime import datetime
 from jinja2 import Template
@@ -12,6 +13,8 @@ TEMPLATE = r"""<!DOCTYPE html>
 <title>Skicom — {{ resort.full_name }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --bg-deep: #1a1d23;
@@ -310,6 +313,34 @@ TEMPLATE = r"""<!DOCTYPE html>
     color: var(--text-secondary);
   }
 
+  .depth-row {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-top: 12px;
+    padding: 14px 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-wrap: wrap;
+  }
+
+  .depth-item { text-align: center; }
+
+  .depth-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--accent-snow);
+  }
+
+  .depth-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
   /* ─── Accommodation ─── */
   .accom-grid {
     display: grid;
@@ -455,14 +486,23 @@ TEMPLATE = r"""<!DOCTYPE html>
     border: 1px solid var(--border);
     margin-bottom: 16px;
     box-shadow: var(--shadow);
+    height: 400px;
   }
 
-  .accom-map iframe {
-    width: 100%;
-    height: 360px;
-    border: none;
-    display: block;
+  .leaflet-popup-content-wrapper {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-warm) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: var(--shadow) !important;
   }
+  .leaflet-popup-tip { background: var(--bg-card) !important; }
+  .leaflet-popup-content { font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+  .leaflet-popup-content .popup-name { font-weight: 600; color: var(--accent-amber); margin-bottom: 4px; }
+  .leaflet-popup-content .popup-type { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+  .leaflet-popup-content .popup-detail { font-size: 12px; color: var(--text-secondary); }
+  .leaflet-popup-content a { color: var(--accent-blue); }
+  .leaflet-popup-close-button { color: var(--text-muted) !important; }
 
   /* ─── LLM Summary ─── */
   .summary-card {
@@ -670,6 +710,17 @@ TEMPLATE = r"""<!DOCTYPE html>
         <div class="snow-stat-label">Best Powder Day</div>
       </div>
     </div>
+
+    <div class="depth-row">
+      <div class="depth-item">
+        <div class="depth-value">{% if forecast.snow_summary.base_depth_in is not none %}{{ forecast.snow_summary.base_depth_in }}"{% else %}--{% endif %}</div>
+        <div class="depth-label">Base Depth</div>
+      </div>
+      <div class="depth-item">
+        <div class="depth-value">{% if forecast.snow_summary.summit_depth_in is not none %}{{ forecast.snow_summary.summit_depth_in }}"{% else %}--{% endif %}</div>
+        <div class="depth-label">Summit Depth</div>
+      </div>
+    </div>
   </section>
 
   <!-- ─── Accommodations ─── -->
@@ -683,13 +734,7 @@ TEMPLATE = r"""<!DOCTYPE html>
     </div>
 
     {% if accommodations %}
-    <div class="accom-map">
-      <iframe
-        src="https://www.openstreetmap.org/export/embed.html?bbox={{ bbox }}&layer=mapnik&marker={{ resort.lat }},{{ resort.lon }}"
-        loading="lazy"
-        title="Accommodation map"
-      ></iframe>
-    </div>
+    <div class="accom-map" id="accomMap"></div>
 
     <div class="accom-grid">
       {% for a in accommodations %}
@@ -773,6 +818,48 @@ TEMPLATE = r"""<!DOCTYPE html>
     overlay.appendChild(s);
   }
 })();
+
+{% if accommodations %}
+(function() {
+  var mapEl = document.getElementById('accomMap');
+  if (!mapEl) return;
+  var map = L.map('accomMap', { scrollWheelZoom: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  var resortIcon = L.divIcon({
+    className: '',
+    html: '<div style="font-size:28px;text-shadow:0 2px 6px rgba(0,0,0,.5)">⛷️</div>',
+    iconSize: [28, 28], iconAnchor: [14, 14]
+  });
+  L.marker([{{ resort.lat }}, {{ resort.lon }}], { icon: resortIcon })
+    .addTo(map).bindPopup('<div class="popup-name">{{ resort.full_name }}</div><div class="popup-type">Ski Resort</div>');
+
+  var accomIcon = L.divIcon({
+    className: '',
+    html: '<div style="font-size:22px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))">📍</div>',
+    iconSize: [22, 22], iconAnchor: [11, 22]
+  });
+  var bounds = L.latLngBounds([[{{ resort.lat }}, {{ resort.lon }}]]);
+
+  var places = {{ accom_json }};
+  places.forEach(function(a) {
+    var popup = '<div class="popup-name">' + a.name + '</div>'
+      + '<div class="popup-type">' + a.type_icon + ' ' + a.type
+      + (a.stars ? ' · ' + a.stars + '★' : '') + '</div>'
+      + '<div class="popup-detail">' + a.distance_mi + ' mi from resort</div>';
+    if (a.addr) popup += '<div class="popup-detail">' + a.addr + '</div>';
+    if (a.phone) popup += '<div class="popup-detail">📞 ' + a.phone + '</div>';
+    if (a.website) popup += '<div class="popup-detail"><a href="' + a.website + '" target="_blank">Visit Website ↗</a></div>';
+    L.marker([a.lat, a.lon], { icon: accomIcon }).addTo(map).bindPopup(popup);
+    bounds.extend([a.lat, a.lon]);
+  });
+
+  map.fitBounds(bounds.pad(0.15));
+})();
+{% endif %}
 </script>
 
 </body>
@@ -831,6 +918,12 @@ def render_report(
     llm_model = llm_cfg.get("model", "") if llm_cfg.get("enabled") and summary else ""
     llm_provider_icon = _provider_icon(llm_cfg.get("api_base", "")) if llm_model else ""
 
+    accom_json = json.dumps([
+        {k: a[k] for k in ("name", "type", "type_icon", "lat", "lon",
+                            "distance_mi", "phone", "website", "stars", "addr")}
+        for a in accommodations
+    ], ensure_ascii=False)
+
     template = Template(TEMPLATE)
     html = template.render(
         resort=resort,
@@ -843,6 +936,7 @@ def render_report(
         zoom=zoom,
         llm_model=llm_model,
         llm_provider_icon=llm_provider_icon,
+        accom_json=accom_json,
     )
 
     with open(html_path, "w", encoding="utf-8") as f:
@@ -915,11 +1009,17 @@ def _render_txt(
     best_str = "—"
     if best and (best.get("snowfall_in") or 0) > 0:
         best_str = f"{best.get('date_short', best['date'])} ({best['snowfall_in']}\")"
+    base_d = snow.get("base_depth_in")
+    summit_d = snow.get("summit_depth_in")
+    base_str = f'{base_d}"' if base_d is not None else "--"
+    summit_str = f'{summit_d}"' if summit_d is not None else "--"
+
     lines += [
         "",
         f"  Total snowfall: {snow.get('total_snowfall_in', 0)}\"  |  "
         f"Snow days: {snow.get('snow_days_count', 0)}  |  "
         f"Best powder day: {best_str}",
+        f"  Base depth: {base_str}  |  Summit depth: {summit_str}",
     ]
 
     lines += ["", hr, f"  NEARBY STAYS (within {search_radius_mi} mi)", hr]
