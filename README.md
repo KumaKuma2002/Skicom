@@ -1,104 +1,82 @@
 # Skicom
 
-**Your cozy ski resort companion.** Look up any ski resort, get trail maps, snow forecasts, nearby accommodation options, and an AI-powered trip summary — all rendered in a warm Nordic-styled report.
+**Plan your ski trip from the terminal.** One command. 386 resorts. No brochures.
+
+```bash
+python3 skicom.py "Jackson Hole"
+```
 
 ![Hero — Resort overview with trail map](docs/skicom_hero.png)
 
----
+## Why
 
-## Features
+You check `git status` more than the weather. You'd rather pipe JSON than browse travel sites. But when the snow dumps, you still need to know *where to go, when to go, and where to sleep*.
 
-### Trail Map
+Skicom pulls it all together in one shot — trail maps, forecasts, lodging, and an AI brief — then drops a clean report in your browser. No accounts. No ads. Just data.
 
-Embedded [OpenSkiMap.org](https://openskimap.org) view centered on your resort. See runs, lifts, and terrain at a glance with a direct link to the full interactive map.
+## What You Get
 
-### 7-Day Snow & Weather Forecast
+**Trail map** — OpenSkiMap embed, centered on your resort. Runs, lifts, terrain.
 
-Real-time forecast from [Open-Meteo](https://open-meteo.com) (free, no API key needed). Each day shows temperature, snowfall, wind, and conditions. Snow days glow with a warm amber tint, and a summary banner highlights total snowfall, number of snow days, and the **best powder day** by exact date.
+**7-day snow & weather** — Open-Meteo forecast with daily cards. Snow days highlighted. Best powder day pinned by date.
 
 ![Forecast — 7-day weather cards with snow summary banner](docs/skicom_forecast.png)
 
-### Nearby Stays
-
-Accommodation search powered by OpenStreetMap's Overpass API. Finds hotels, chalets, alpine huts, hostels, and guest houses within a configurable radius. Results include distance, address, phone, and a **"Visit Website"** button where available, all plotted on an embedded map.
+**Nearby stays** — Hotels, chalets, hostels from OpenStreetMap within configurable radius. Distance, contact, direct links.
 
 ![Stays — Accommodation cards with map and visit buttons](docs/skicom_stays.png)
 
-### AI Trip Summary
-
-Optional LLM-powered trip brief. Point it at any OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, vLLM, etc.) via `config.yaml`. The prompt is kept simple and focused — the model receives resort stats, forecast data, and nearby lodging, then returns a short planning summary covering best ski days, packing tips, and accommodation picks.
+**AI trip brief** — Plug in any OpenAI-compatible LLM (OpenAI, Ollama, LM Studio, etc). Gets a short "best days to ski / what to pack / where to stay" summary.
 
 ![Summary — AI-generated trip advisor card](docs/skicom_summary.png)
 
-### Dual Output
-
-Every run produces two files:
-- **HTML report** — opens in your browser with the full Nordic-styled UI, falling snowflakes, interactive maps, and hover effects
-- **Text report** — clean plaintext version for terminals, emails, or archival
-
----
+**Dual output** — HTML with Nordic dark UI + falling snow, and a plaintext `.txt` for your terminal or clipboard.
 
 ## Quick Start
 
 ```bash
-# Clone the repo
-git clone https://github.com/youruser/skicom.git
-cd skicom
-
-# Install dependencies
+git clone https://github.com/KumaKuma2002/Skicom.git
+cd Skicom
 pip install -r requirements.txt
 
-# Set up config (required for LLM summary)
+# Optional: enable AI summary
 cp config.example.yaml config.yaml
-# Edit config.yaml and add your OpenAI API key
+# Edit config.yaml → add your API key, set enabled: true
 
-# Run it
-python3 skicom.py "Vail"
+python3 skicom.py "Mammoth"
 ```
 
-Interactive mode (prompts you to pick a resort):
+Works out of the box without config — you just won't get the LLM summary.
+
+### Usage
 
 ```bash
-python3 skicom.py
+python3 skicom.py                        # interactive picker
+python3 skicom.py "Vail"                 # direct search
+python3 skicom.py "Crystal Mountain WA"  # state hint for disambiguation
+python3 skicom.py "breck"                # aliases work too
+python3 skicom.py --no-open "Stowe"      # skip auto-open browser
 ```
 
-### CLI Options
-
-| Flag | Description |
-|------|-------------|
-| `"resort name"` | Direct search by name |
-| `--config`, `-c` | Path to config YAML (default: `config.yaml`) |
-| `--no-open` | Don't auto-open the HTML report in browser |
-
----
-
-## Configuration
-
-Copy the example and add your own keys:
+## Config
 
 ```bash
 cp config.example.yaml config.yaml
 ```
-
-Then edit `config.yaml`:
 
 ```yaml
 llm:
   enabled: true
-  api_base: "https://api.openai.com/v1"   # any OpenAI-compatible URL
+  api_base: "https://api.openai.com/v1"  # or http://localhost:11434/v1 for Ollama
   api_key: "sk-..."
-  model: "gpt-4.1"
-  max_tokens: 1024
-  system_prompt: >
-    You are a ski concierge. Summarize this ski resort data into a short,
-    friendly trip-planning brief. Cover: best ski days, snow outlook, what
-    to pack, and where to stay. Keep it under 200 words.
+  model: "gpt-5-mini"
+  max_tokens: 4096
 
 weather:
   forecast_days: 7
 
 accommodations:
-  search_radius_m: 15000    # meters
+  search_radius_m: 15000
   max_results: 12
 
 output:
@@ -106,62 +84,22 @@ output:
   auto_open: true
 ```
 
-### Using with local LLMs
-
-Point `api_base` at your local server:
-
-```yaml
-llm:
-  enabled: true
-  api_base: "http://localhost:11434/v1"   # Ollama
-  api_key: ""
-  model: "llama3"
-```
-
----
-
 ## Resort Database
 
-Ships with **85+ ski resorts** across the US and select Canadian resorts, stored in `data/us_resorts.json`. Each entry includes:
+**386 resorts** across the US and Canada. Fuzzy name matching with alias support — `"a-basin"`, `"smuggs"`, `"squaw valley"`, `"bachelor"` all resolve. Add `", WA"` or `"washington"` to disambiguate when names collide (e.g. Crystal Mountain exists in both WA and MI).
 
-- Full name and short name (for fuzzy matching)
-- State, region, coordinates
-- Summit elevation, trail count, skiable acres
+## Stack
 
-Fuzzy matching uses [thefuzz](https://github.com/seatgeek/thefuzz) with token sort ratio, so partial names like `"jackson"`, `"mammoth"`, or `"breck"` all work.
+| What | How | Cost |
+|------|-----|------|
+| Weather & snow | [Open-Meteo](https://open-meteo.com) | Free |
+| Trail maps | [OpenSkiMap](https://openskimap.org) | Free |
+| Accommodations | [OpenStreetMap / Overpass](https://overpass-api.de) | Free |
+| AI summary | Any OpenAI-compatible API | BYOK |
+| Resort search | [thefuzz](https://github.com/seatgeek/thefuzz) | Free |
+| UI | Jinja2 + hand-rolled Nordic CSS | Free |
 
----
-
-## Project Structure
-
-```
-skicom/
-├── skicom.py              # CLI entry point
-├── resorts.py             # Resort DB + fuzzy search
-├── weather.py             # Open-Meteo forecast client
-├── accommodations.py      # Overpass/OSM accommodation finder
-├── llm.py                 # LLM summary (OpenAI-compatible)
-├── renderer.py            # HTML + TXT report renderer
-├── config.example.yaml    # Configuration template (copy to config.yaml)
-├── requirements.txt       # Python deps
-├── data/
-│   └── us_resorts.json    # Resort database
-├── reports/               # Generated reports (gitignored)
-└── docs/                  # README images
-```
-
----
-
-## Data Sources & Credits
-
-| Source | Used For | Cost |
-|--------|----------|------|
-| [Open-Meteo](https://open-meteo.com) | Weather & snow forecast | Free (non-commercial) |
-| [OpenSkiMap](https://openskimap.org) | Trail map embeds | Free |
-| [OpenStreetMap / Overpass](https://overpass-api.de) | Accommodation search | Free |
-| [OpenAI](https://openai.com) (or compatible) | AI trip summary | BYOK |
-
----
+No API keys needed except for the optional LLM summary.
 
 ## License
 
