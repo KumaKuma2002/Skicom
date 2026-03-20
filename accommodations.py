@@ -55,6 +55,7 @@ def fetch_accommodations(lat: float, lon: float, radius_m: int = 15000, max_resu
             "lat": a_lat,
             "lon": a_lon,
             "distance_mi": round(dist, 1),
+            "proximity_tag": _proximity_tag(dist),
             "phone": tags.get("phone", ""),
             "website": tags.get("website", ""),
             "stars": tags.get("stars", ""),
@@ -83,6 +84,15 @@ def _build_address(tags: dict) -> str:
         if tags.get(key):
             parts.append(tags[key])
     return ", ".join(parts) if parts else ""
+
+
+def _proximity_tag(distance_mi: float) -> str:
+    """Return a proximity label for lodging near the resort."""
+    if distance_mi <= 0.5:
+        return "onsite"
+    if distance_mi <= 1.5:
+        return "slopeside"
+    return ""
 
 
 def _friendly_type(tourism: str) -> str:

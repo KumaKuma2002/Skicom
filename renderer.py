@@ -386,6 +386,29 @@ TEMPLATE = r"""<!DOCTYPE html>
     color: var(--text-muted);
   }
 
+  .accom-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  .accom-tag.onsite {
+    color: #1a1d23;
+    background: var(--accent-amber);
+  }
+
+  .accom-tag.slopeside {
+    color: var(--accent-blue);
+    background: var(--glow-blue);
+    border: 1px solid rgba(126, 184, 216, 0.25);
+  }
+
   .accom-btn {
     display: inline-flex;
     align-items: center;
@@ -673,7 +696,7 @@ TEMPLATE = r"""<!DOCTYPE html>
       <div class="accom-card">
         <div class="accom-icon">{{ a.type_icon }}</div>
         <div class="accom-info">
-          <div class="accom-name">{{ a.name }}</div>
+          <div class="accom-name">{{ a.name }}{% if a.proximity_tag %}<span class="accom-tag {{ a.proximity_tag }}">{% if a.proximity_tag == 'onsite' %}Onsite Lodging{% else %}Slopeside{% endif %}</span>{% endif %}</div>
           <div class="accom-type">{{ a.type }}{% if a.stars %} · {{ a.stars }}★{% endif %}</div>
           <div class="accom-details">
             <span class="accom-distance">↕ {{ a.distance_mi }} mi from resort</span>
@@ -903,7 +926,12 @@ def _render_txt(
     if accommodations:
         for a in accommodations:
             web = f"  {a['website']}" if a.get("website") else ""
-            lines.append(f"  {a['type_icon']} {a['name']}")
+            tag = ""
+            if a.get("proximity_tag") == "onsite":
+                tag = "  [ONSITE LODGING]"
+            elif a.get("proximity_tag") == "slopeside":
+                tag = "  [SLOPESIDE]"
+            lines.append(f"  {a['type_icon']} {a['name']}{tag}")
             lines.append(f"    {a['type']} · {a['distance_mi']} mi away")
             if a.get("addr"):
                 lines.append(f"    {a['addr']}")
