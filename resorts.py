@@ -5,7 +5,7 @@ import os
 import re
 from thefuzz import fuzz, process
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "us_resorts.json")
+DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "resorts.json")
 
 US_STATES = {
     "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",

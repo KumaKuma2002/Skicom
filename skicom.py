@@ -14,7 +14,6 @@ Usage:
 
 import argparse
 import os
-import sys
 import webbrowser
 
 import yaml
@@ -97,11 +96,11 @@ def run(query: str | None = None, config_path: str = "config.yaml"):
         if not resort:
             return
 
-    weather_days = config.get("weather", {}).get("forecast_days", 7)
+    weather_days = config.get("weather", {}).get("forecast_days", 6)
     search_radius = config.get("accommodations", {}).get("search_radius_m", 15000)
     max_accom = config.get("accommodations", {}).get("max_results", 12)
 
-    print(f"\n  ⏳ Fetching 7-day forecast for {resort['full_name']}...")
+    print(f"\n  ⏳ Fetching 6-day forecast for {resort['full_name']}...")
     try:
         forecast = get_full_forecast(resort["lat"], resort["lon"], days=weather_days, resort=resort)
         snow = forecast["snow_summary"]
@@ -150,7 +149,20 @@ def main():
     parser.add_argument("--config", "-c", default="config.yaml", help="Path to config YAML (default: config.yaml)")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open the report in browser")
     parser.add_argument("--no-llm", action="store_true", help="Skip LLM summary generation (saves tokens)")
+    parser.add_argument("--serve", action="store_true", help="Launch the web app in your browser (search, browse & generate reports)")
+    parser.add_argument("--app", action="store_true", help="Launch Skicom as a native desktop window (browser fallback if pywebview is missing)")
+    parser.add_argument("--port", type=int, default=0, help="Port for --serve/--app (0 = auto-pick)")
     args = parser.parse_args()
+
+    if args.app:
+        from app import launch
+        launch(port=args.port, config_path=args.config)
+        return
+
+    if args.serve:
+        from server import serve
+        serve(port=args.port or 8765, open_browser=not args.no_open, config_path=args.config)
+        return
 
     overrides = {}
     if args.no_open:

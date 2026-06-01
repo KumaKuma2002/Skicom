@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Skicom launcher — bootstraps the virtualenv on first run, then forwards all
+# arguments to skicom.py. Resolves the repo from this script's location, so it
+# works whether you call it directly, via a symlink on your PATH, or from the
+# macOS app bundle.
+#
+#   skicom                 # interactive search in the terminal
+#   skicom "Zermatt"       # generate a report for a resort
+#   skicom --serve         # launch the cozy web app in your browser
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do                      # resolve symlinks
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+cd "$REPO"
+
+if [ ! -x ".venv/bin/python" ]; then
+  echo "  ⛷  First run — setting up Skicom (one time, ~20s)…"
+  python3 -m venv .venv
+  ./.venv/bin/pip install --quiet --upgrade pip
+  ./.venv/bin/pip install --quiet -r requirements.txt
+  echo "  ✓ Ready."
+fi
+
+exec ./.venv/bin/python skicom.py "$@"

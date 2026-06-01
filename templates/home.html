@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skicom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script>
+  // Apply the persisted theme before paint to avoid a flash; honor the OS
+  // preference as the default when no explicit choice has been saved.
+  (function () {
+    try {
+      var saved = localStorage.getItem("skicom-theme");
+      if (saved === "dark" || saved === "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    } catch (e) {}
+  })();
+</script>
+<style>
+  :root {
+    --bg: #FAF6EF;
+    --card: #FFFFFF;
+    --ink: #2B2622;
+    --muted: #8A7F72;
+    --line: #ECE3D6;
+    --accent: #D97757;
+    --accent-deep: #C4623F;
+    --accent-text: #FFFFFF;
+    --sand: #E8C9A0;
+    --pine: #6B7F5E;
+    --snow-blue: #BCD3DE;
+    --overlay-bg: rgba(250,246,239,0.94);
+    --accent-soft: rgba(217,119,87,0.08);
+    --accent-soft-hover: rgba(217,119,87,0.13);
+    --hairline: rgba(43,38,34,0.07);
+    --shadow: none;
+    --shadow-hover: 0 6px 24px rgba(43,38,34,0.06);
+  }
+
+  /* Cozy dark palette — shared by the OS media query and the explicit toggle. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1C1916;
+      --card: #262220;
+      --ink: #ECE4DA;
+      --muted: #9C9085;
+      --line: #3A332D;
+      --accent: #E08A6B;
+      --accent-deep: #D97757;
+      --accent-text: #FFFFFF;
+      --sand: #E8C9A0;
+      --pine: #6B7F5E;
+      --snow-blue: #BCD3DE;
+      --overlay-bg: rgba(28,25,22,0.94);
+      --accent-soft: rgba(224,138,107,0.12);
+      --accent-soft-hover: rgba(224,138,107,0.18);
+      --hairline: rgba(255,255,255,0.06);
+      --shadow: none;
+      --shadow-hover: 0 6px 26px rgba(0,0,0,0.32);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1C1916;
+    --card: #262220;
+    --ink: #ECE4DA;
+    --muted: #9C9085;
+    --line: #3A332D;
+    --accent: #E08A6B;
+    --accent-deep: #D97757;
+    --accent-text: #FFFFFF;
+    --sand: #E8C9A0;
+    --pine: #6B7F5E;
+    --snow-blue: #BCD3DE;
+    --overlay-bg: rgba(28,25,22,0.94);
+    --accent-soft: rgba(224,138,107,0.12);
+    --accent-soft-hover: rgba(224,138,107,0.18);
+    --hairline: rgba(255,255,255,0.06);
+    --shadow: none;
+    --shadow-hover: 0 6px 26px rgba(0,0,0,0.32);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--accent); color: var(--accent-text); }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 40px 160px;
+  }
+
+  /* ─── Theme toggle ─── */
+  .theme-toggle {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 60;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+  .theme-toggle:hover { color: var(--ink); background: var(--accent-soft); }
+  .theme-toggle:active { transform: scale(0.94); }
+  .theme-toggle svg { width: 18px; height: 18px; display: block; }
+  .theme-toggle .icon-moon { display: none; }
+  :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+  :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: none; }
+    :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: block; }
+  }
+
+  /* ─── Hero ─── */
+  .hero {
+    text-align: center;
+    padding: 132px 16px 36px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 60px;
+    font-weight: 600;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .brand .mark {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    color: var(--accent);
+  }
+  .brand .mark svg { width: 100%; height: 100%; display: block; }
+  .brand .bang { color: var(--accent); }
+
+  .tagline {
+    margin-top: 24px;
+    font-size: 18.5px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: -0.012em;
+    line-height: 1.5;
+  }
+
+  /* ─── Search ─── */
+  .search-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    max-width: 660px;
+    margin: 52px auto 0;
+  }
+
+  .search-shell {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .search-shell svg.s-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  #search {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 15px 46px 15px 48px;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  #search::placeholder { color: var(--muted); opacity: 0.8; }
+  #search:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .clear-btn {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+  .clear-btn:hover { background: var(--accent-soft); color: var(--ink); }
+  .clear-btn svg { width: 13px; height: 13px; }
+  .search-shell.has-text .clear-btn { display: inline-flex; }
+
+  /* ─── I'm Feeling Lucky (ghost / clay-tinted) ─── */
+  .lucky-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 15px 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.18s ease, transform 0.16s ease;
+  }
+  .lucky-btn:hover { background: var(--accent-soft-hover); }
+  .lucky-btn:active { transform: scale(0.97); }
+  .lucky-btn svg { width: 17px; height: 17px; flex-shrink: 0; }
+
+  @media (max-width: 560px) {
+    .lucky-btn span { display: none; }
+    .lucky-btn { padding: 15px; }
+  }
+
+  /* ─── Tabs (calm segmented row) ─── */
+  .seg-scroll {
+    margin: 72px auto 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  }
+  .seg-scroll::-webkit-scrollbar { display: none; }
+
+  .seg {
+    display: inline-flex;
+    gap: 6px;
+    white-space: nowrap;
+    padding: 2px;
+  }
+
+  .pill {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    color: var(--muted);
+    padding: 9px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.16s ease, background 0.16s ease;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill[aria-selected="true"] {
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-soft);
+  }
+
+  /* ─── Standalone pixel buttons (fixed top-left): MAP + ‹ HOME ─── */
+  /* Repurposed from the old segmented "seg-pixel" Map pill — same cozy-clay
+     pixel-art look, now lifted out of the pill row into a fixed corner slot.
+     MAP enters map mode; ‹ HOME (map-mode only) exits back to the home view. */
+  .seg-pixel {
+    --px-accent: #D97757;          /* cozy clay */
+    --px-accent-deep: #C4623F;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 70;                   /* above content; theme toggle is top-right */
+    appearance: none;
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 400;
+    color: var(--px-accent);
+    background: #FFFFFF;
+    border: 3px solid var(--px-accent);
+    border-radius: 0;
+    padding: 8px 10px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--px-accent);
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    transition: transform 0.06s steps(2), box-shadow 0.06s steps(2);
+  }
+  .seg-pixel:hover {
+    color: var(--px-accent);
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--px-accent);
+  }
+  .seg-pixel:active {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--px-accent-deep);
+  }
+  /* Hidden state for whichever button isn't currently relevant. */
+  .seg-pixel[hidden] { display: none; }
+
+  /* ─── Result header ─── */
+  .result-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 68px 2px 32px;
+  }
+  .result-title {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.038em;
+    color: var(--ink);
+  }
+  .result-count {
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ─── Sub-sections (region drill-down) ─── */
+  .subsection { margin-top: 56px; }
+  .subsection:first-child { margin-top: 0; }
+  .sub-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 2px 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sub-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .sub-count {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: var(--muted);
+  }
+
+  /* ─── Grid + cards ─── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
+    gap: 18px;
+  }
+  /* In drill-down mode the outer container holds <section>s, not cards. */
+  .grid.sections {
+    display: block;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 22px 22px 20px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s cubic-bezier(0.2,0.7,0.3,1), border-color 0.18s ease, box-shadow 0.18s ease;
+    will-change: transform;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--line);
+    box-shadow: var(--shadow-hover);
+  }
+  .card:active { transform: translateY(0); }
+
+  .card-name {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.024em;
+    color: var(--ink);
+    line-height: 1.28;
+  }
+  .card-sub {
+    margin-top: 7px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 18px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--hairline);
+    border-radius: 9px;
+    padding: 4px 9px;
+    white-space: nowrap;
+  }
+  .chip b { font-weight: 700; }
+  .chip .unit { font-size: 10.5px; font-weight: 500; color: var(--muted); }
+  .chip.elev b { color: var(--accent); }
+  .chip.vert b { color: var(--accent); }
+
+  /* ─── Empty state ─── */
+  .empty {
+    text-align: center;
+    padding: 72px 20px;
+    color: var(--muted);
+    grid-column: 1 / -1;
+  }
+  .empty .em-icon { display: block; margin: 0 auto 14px; color: var(--muted); }
+  .empty .em-icon svg { width: 30px; height: 30px; }
+  .empty .em-title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 4px; }
+  .empty .em-sub { font-size: 13.5px; }
+
+  /* ─── Generating overlay (terminal / code panel) ─── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    background: var(--overlay-bg);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    backdrop-filter: saturate(140%) blur(14px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    padding: 24px;
+  }
+  .overlay.show { opacity: 1; visibility: visible; }
+
+  /* Code-editor panel: warm off-white in light, deep charcoal in dark. */
+  .term {
+    --term-bg: var(--card);
+    --term-ink: var(--ink);
+    width: 100%;
+    max-width: 540px;
+    background: var(--term-bg);
+    color: var(--term-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    box-shadow: var(--shadow-hover);
+    overflow: hidden;
+    transform: translateY(8px) scale(0.985);
+    opacity: 0;
+    transition: transform 0.32s cubic-bezier(0.2,0.7,0.3,1), opacity 0.32s ease;
+  }
+  :root[data-theme="dark"] .term { --term-bg: #1F1C19; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .term { --term-bg: #1F1C19; }
+  }
+  .overlay.show .term { transform: translateY(0) scale(1); opacity: 1; }
+
+  /* Faux window chrome */
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .term-dot.r { background: #E8836B; }
+  .term-dot.y { background: #E8C9A0; }
+  .term-dot.g { background: #8FA67E; }
+  .term-title {
+    margin-left: 8px;
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+  }
+
+  /* Terminal body */
+  .term-body {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 18px 18px 20px;
+    color: var(--term-ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .term-cmd { color: var(--term-ink); }
+  .term-cmd .prompt { color: var(--accent); font-weight: 600; }
+  .term-cmd .arg { color: var(--pine); }
+  :root[data-theme="dark"] .term-cmd .arg { color: #9FBA8C; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .term-cmd .arg { color: #9FBA8C; }
+  }
+
+  .term-steps { margin-top: 6px; }
+  .term-step { color: var(--muted); display: flex; gap: 8px; }
+  .term-step .tick { color: var(--pine); flex-shrink: 0; }
+  :root[data-theme="dark"] .term-step .tick { color: #9FBA8C; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .term-step .tick { color: #9FBA8C; }
+  }
+  .term-step.active { color: var(--term-ink); }
+
+  /* Progress bar line */
+  .term-progress {
+    margin-top: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    color: var(--term-ink);
+  }
+  .term-bar { color: var(--accent); letter-spacing: 0.5px; }
+  .term-bar .empty { color: var(--line); }
+  .term-pct { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .term-label {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .term-label b { color: var(--accent); font-weight: 600; }
+
+  /* Blinking cursor on the active line */
+  .cursor {
+    display: inline-block;
+    color: var(--accent);
+    animation: term-blink 1s steps(2, start) infinite;
+  }
+  @keyframes term-blink { 50% { opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .term { transition: none; transform: none; }
+    .overlay.show .term { transform: none; }
+    .cursor { animation: none; }
+    .card, #search, .pill, .clear-btn { transition: none; }
+  }
+
+  /* ─── Map mode (full-width Leaflet) — pixel-art frame (cozy clay) ─── */
+  .map-shell {
+    display: none;
+    margin-top: 40px;
+    margin-bottom: 12px;   /* breathing room for the offset pixel shadow */
+    width: 100%;
+  }
+  .map-shell.show { display: block; }
+  #resortMap {
+    --px-accent: #D97757;        /* cozy clay */
+    --px-shadow: #E8C9A0;        /* warm sand offset shadow */
+    width: 100%;
+    height: min(70vh, 640px);
+    border: 3px solid var(--px-accent);
+    border-radius: 0;            /* sharp pixel corners */
+    box-shadow: 6px 6px 0 var(--px-shadow);
+    background: var(--card);
+    /* Clip the tile layer to the square frame. */
+    overflow: hidden;
+    z-index: 0;
+  }
+  :root[data-theme="dark"] #resortMap { --px-shadow: rgba(217,119,87,0.5); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) #resortMap { --px-shadow: rgba(217,119,87,0.5); }
+  }
+  /* Leaflet panes inherit the square clip from the container. */
+  #resortMap .leaflet-container { border-radius: 0; }
+
+  /* Pixel-squared Leaflet zoom controls (clay outline, white bg, default glyphs) */
+  #resortMap .leaflet-bar {
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: 3px 3px 0 rgba(217,119,87,0.45);
+  }
+  #resortMap .leaflet-control-zoom a,
+  #resortMap .leaflet-control-zoom a:hover {
+    background: #FFFFFF;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    border-radius: 0;
+    font-weight: 700;
+  }
+  #resortMap .leaflet-control-zoom a:first-child { border-bottom-width: 1px; }
+  #resortMap .leaflet-control-zoom a:last-child { border-top-width: 1px; }
+  #resortMap .leaflet-control-zoom a:hover { background: var(--accent); color: #FFFFFF; }
+  :root[data-theme="dark"] #resortMap .leaflet-control-zoom a,
+  :root[data-theme="dark"] #resortMap .leaflet-control-zoom a:hover {
+    background: var(--card);
+    color: var(--accent);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) #resortMap .leaflet-control-zoom a,
+    :root:not([data-theme="light"]) #resortMap .leaflet-control-zoom a:hover {
+      background: var(--card);
+      color: var(--accent);
+    }
+  }
+  #resortMap .leaflet-control-attribution {
+    background: var(--card);
+    color: var(--muted);
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 10.5px;
+    border-radius: 0;
+  }
+  #resortMap .leaflet-control-attribution a { color: var(--accent); }
+
+  /* ─── Square pixel markers (clay block, white border, hard shadow) ─── */
+  /* Neutralize Leaflet's default div-icon box so only the inner square shows. */
+  #resortMap .map-pin-wrap {
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .map-pin {
+    width: 12px;
+    height: 12px;
+    background: #D97757;
+    border: 2px solid #FFFFFF;
+    border-radius: 0;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.25);
+    image-rendering: pixelated;
+    transition: transform 0.06s steps(2);
+  }
+  .map-pin:hover { transform: scale(1.35); }
+
+  /* ─── Popup as a pixel card (sharp corners, clay border + hard shadow) ─── */
+  .leaflet-popup-content-wrapper {
+    background: var(--card);
+    color: var(--ink);
+    border: 3px solid var(--accent);
+    border-radius: 0;
+    box-shadow: 4px 4px 0 var(--accent);
+  }
+  .leaflet-popup-tip {
+    background: var(--card);
+    border: 3px solid var(--accent);
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .leaflet-popup-content {
+    margin: 14px 16px 13px;
+    font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+    line-height: 1.45;
+  }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+  .leaflet-popup-close-button:hover { color: var(--ink) !important; }
+  .map-pop-name {
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 10px;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    color: var(--accent);
+    -webkit-font-smoothing: none;
+  }
+  .map-pop-sub {
+    margin-top: 8px;
+    font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  /* ─── Pixel window popup (retro window-chrome dialog) ─── */
+  /* Let the title bar sit flush against the popup frame — kill the default
+     content padding so the clay bar can span edge-to-edge. The `map-pop`
+     class is applied by Leaflet to the popup wrapper. */
+  .leaflet-popup.map-pop .leaflet-popup-content {
+    margin: 0;
+    width: auto !important;
+  }
+  .map-pop-win {
+    min-width: 192px;
+    background: var(--card);
+  }
+  /* Faux WINDOW TITLE BAR — clay band, white text, tiny window dots. */
+  .map-pop-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 9px;
+    background: var(--accent);
+    border-bottom: 3px solid var(--accent-deep);
+  }
+  .map-pop-dots {
+    display: inline-flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .map-pop-dots span {
+    width: 6px;
+    height: 6px;
+    background: #FFFFFF;
+    border-radius: 0;            /* tiny white SQUARES — pixel chrome */
+    image-rendering: pixelated;
+  }
+  .map-pop-title {
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 8px;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    color: #FFFFFF;
+    -webkit-font-smoothing: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;     /* truncate long names */
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* Body below the bar. */
+  .map-pop-body {
+    padding: 11px 13px 12px;
+  }
+  /* Basic-info grid — tiny pixel label + readable Hanken value. */
+  .map-pop-info {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 5px 12px;
+    margin-top: 10px;
+    align-items: baseline;
+  }
+  .map-pop-k {
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 6.5px;
+    line-height: 1.5;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    -webkit-font-smoothing: none;
+    white-space: nowrap;
+  }
+  .map-pop-v {
+    font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    text-align: right;
+  }
+  .map-pop-v .unit {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-left: 3px;
+  }
+  .map-pop-v.clay { color: var(--accent); }
+  /* "OPEN REPORT" — same pixel button as the report's back button */
+  .map-pop-btn {
+    --px-accent: #D97757;
+    --px-accent-deep: #C4623F;
+    display: inline-block;
+    margin-top: 12px;
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: 8px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 400;
+    color: var(--px-accent);
+    background: #FFFFFF;
+    border: 3px solid var(--px-accent);
+    border-radius: 0;
+    padding: 8px 10px 7px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--px-accent);
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    transition: transform 0.06s steps(2), box-shadow 0.06s steps(2);
+  }
+  .map-pop-btn:hover {
+    color: var(--px-accent);
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--px-accent);
+  }
+  .map-pop-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--px-accent-deep);
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 0 18px 64px; }
+    .hero { padding: 52px 8px 26px; }
+    .brand { font-size: 40px; }
+    .result-title { font-size: 24px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)); }
+    #resortMap { height: min(64vh, 520px); }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme" title="Toggle theme">
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"/>
+    <line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/>
+    <line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/>
+    <line x1="5.3" y1="5.3" x2="7" y2="7"/><line x1="17" y1="17" x2="18.7" y2="18.7"/>
+    <line x1="18.7" y1="5.3" x2="17" y2="7"/><line x1="7" y1="17" x2="5.3" y2="18.7"/>
+  </svg>
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20 14.5A8 8 0 0 1 9.5 4a6.5 6.5 0 1 0 10.5 10.5z"/>
+  </svg>
+</button>
+
+<!-- Standalone pixel controls (fixed top-left). They share the slot: MAP shows
+     in the normal home view; ‹ HOME replaces it while in map mode. -->
+<button class="seg-pixel" id="mapBtn" type="button" aria-label="Open map mode">MAP</button>
+<button class="seg-pixel" id="homeBtn" type="button" aria-label="Back to home" hidden>&lt; HOME</button>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 19h19L15 7.5l-3.4 6-2.1-3.2z"/>
+          <path d="M12.5 9.7 15 5l2.4 4.2"/>
+        </svg>
+      </span>
+      <span>Skicom<span class="bang">!</span></span>
+    </div>
+    <p class="tagline">Find your next snow day, then let us plan the trip.</p>
+
+    <div class="search-row">
+      <div class="search-shell" id="searchShell">
+        <svg class="s-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <label for="search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Search ski resorts by name, region, or place</label>
+        <input id="search" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="Search resorts, regions, places…" aria-label="Search ski resorts">
+        <button class="clear-btn" id="clearBtn" type="button" aria-label="Clear search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+      <button class="lucky-btn" id="luckyBtn" type="button" aria-label="I'm Feeling Lucky — open a random resort">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="4"/>
+          <circle cx="8.25" cy="8.25" r="1.05" fill="currentColor" stroke="none"/>
+          <circle cx="15.75" cy="8.25" r="1.05" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="12" r="1.05" fill="currentColor" stroke="none"/>
+          <circle cx="8.25" cy="15.75" r="1.05" fill="currentColor" stroke="none"/>
+          <circle cx="15.75" cy="15.75" r="1.05" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>I'm Feeling Lucky</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="seg-scroll" aria-label="Browse by collection or region">
+    <div class="seg" id="seg" role="tablist"></div>
+  </nav>
+
+  <div class="result-head">
+    <h2 class="result-title" id="resultTitle">Featured</h2>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="map-shell" id="mapShell" aria-hidden="true">
+    <div id="resortMap"></div>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay" role="alertdialog" aria-live="assertive" aria-label="Generating your report" aria-hidden="true">
+  <div class="term" aria-hidden="true">
+    <div class="term-bar">
+      <span class="term-dot r"></span>
+      <span class="term-dot y"></span>
+      <span class="term-dot g"></span>
+      <span class="term-title">skicom — report</span>
+    </div>
+    <div class="term-body">
+      <div class="term-cmd"><span class="prompt">$</span> skicom report <span class="arg" id="termArg">""</span></div>
+      <div class="term-steps" id="termSteps"></div>
+      <div class="term-progress">
+        <span class="term-bar" id="termBar"></span>
+        <span class="term-pct" id="termPct">0%</span>
+      </div>
+      <div class="term-label" id="termLabel"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var RESORTS = __RESORTS_JSON__;
+  var FEATURED = __FEATURED_JSON__;
+
+  // ── helpers ──────────────────────────────────────────────
+  function esc(s) {
+    if (s === null || s === undefined) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // United States for absent/empty country; otherwise `state` holds the country name.
+  function displayCountry(r) {
+    if (!r.country) return "United States";
+    return r.state || r.country || "United States";
+  }
+  // The geographic sub-label after region (state for US, country name otherwise).
+  function placeLabel(r) {
+    return r.country ? (r.state || r.country) : (r.state || "United States");
+  }
+
+  function fmtNum(n) {
+    return Number(n).toLocaleString("en-US");
+  }
+
+  // ── macro-region mapping ─────────────────────────────────
+  // US resorts have no `country`; international resorts carry an ISO2 in `country`.
+  function regionFor(r) {
+    var c = r.country || "";
+    if (!c || c === "CA") return "North America";
+    if (["FR", "CH", "AT", "IT", "DE"].indexOf(c) !== -1) return "Alps";
+    if (["NO", "SE", "FI"].indexOf(c) !== -1) return "Scandinavia";
+    if (c === "JP") return "Japan";
+    if (["ES", "AD"].indexOf(c) !== -1) return "Pyrenees";
+    if (["BG", "CZ", "PL", "SK", "GE"].indexOf(c) !== -1) return "Eastern Europe";
+    if (["CL", "AR", "NZ", "AU"].indexOf(c) !== -1) return "Southern Hemisphere";
+    return "Other";
+  }
+
+  // Desired display order; only regions with ≥1 resort are shown.
+  var REGION_ORDER = [
+    "North America", "Alps", "Scandinavia", "Japan",
+    "Pyrenees", "Eastern Europe", "Southern Hemisphere", "Other"
+  ];
+
+  // ── derive present regions in canonical order ────────────
+  var regions = (function () {
+    var seen = {};
+    RESORTS.forEach(function (r) { seen[regionFor(r)] = true; });
+    return REGION_ORDER.filter(function (name) { return seen[name]; });
+  })();
+
+  // ── DOM refs ─────────────────────────────────────────────
+  var seg = document.getElementById("seg");
+  var grid = document.getElementById("grid");
+  var mapShell = document.getElementById("mapShell");
+  var search = document.getElementById("search");
+  var searchShell = document.getElementById("searchShell");
+  var clearBtn = document.getElementById("clearBtn");
+  var luckyBtn = document.getElementById("luckyBtn");
+  var resultTitle = document.getElementById("resultTitle");
+  var resultCount = document.getElementById("resultCount");
+  var overlay = document.getElementById("overlay");
+  var termArg = document.getElementById("termArg");
+  var termSteps = document.getElementById("termSteps");
+  var termBar = document.getElementById("termBar");
+  var termPct = document.getElementById("termPct");
+  var termLabel = document.getElementById("termLabel");
+  var themeToggle = document.getElementById("themeToggle");
+  var mapBtn = document.getElementById("mapBtn");
+  var homeBtn = document.getElementById("homeBtn");
+
+  var current = "__featured__"; // selected pill key
+  var mapMode = false;          // true while the full-width map is shown
+
+  // ── theme toggle (light / dark) ──────────────────────────
+  function prefersDark() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function currentTheme() {
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark" || attr === "light") return attr;
+    return prefersDark() ? "dark" : "light";
+  }
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("skicom-theme", theme); } catch (e) {}
+  }
+  themeToggle.addEventListener("click", function () {
+    setTheme(currentTheme() === "dark" ? "light" : "dark");
+    swapMapTiles();   // keep the (lazily-built) map tiles in sync with the theme
+  });
+
+  // ── build segmented control ──────────────────────────────
+  function makePill(key, label, extraClass) {
+    var b = document.createElement("button");
+    b.className = "pill" + (extraClass ? " " + extraClass : "");
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.setAttribute("data-key", key);
+    b.setAttribute("aria-selected", key === current ? "true" : "false");
+    b.textContent = label;
+    b.addEventListener("click", function () { selectPill(key); });
+    return b;
+  }
+
+  function buildSeg() {
+    seg.appendChild(makePill("__featured__", "Featured"));
+    // Map mode is no longer a segmented pill — it lives in the fixed top-left
+    // standalone MAP button. The pills are just Featured + the macro-regions.
+    regions.forEach(function (name) {
+      seg.appendChild(makePill(name, name));
+    });
+  }
+
+  function syncPills() {
+    var pills = seg.querySelectorAll(".pill");
+    for (var i = 0; i < pills.length; i++) {
+      var k = pills[i].getAttribute("data-key");
+      var on = (k === current) && !searching();
+      pills[i].setAttribute("aria-selected", on ? "true" : "false");
+      if (on && pills[i].scrollIntoView) {
+        pills[i].scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
+  }
+
+  function searching() {
+    return search.value.trim().length > 0;
+  }
+
+  // ── card rendering ───────────────────────────────────────
+  function cardHTML(r) {
+    var href = "/report?resort=" + encodeURIComponent(r.full_name);
+    var sub = esc(r.region ? (r.region + " · " + placeLabel(r)) : placeLabel(r));
+
+    var chips = "";
+    if (r.elevation_ft) {
+      chips += '<span class="chip elev"><b>' + esc(fmtNum(r.elevation_ft)) + '</b><span class="unit">ft</span></span>';
+    }
+    if (r.vertical_ft) {
+      chips += '<span class="chip vert"><b>' + esc(fmtNum(r.vertical_ft)) + '</b><span class="unit">ft vert</span></span>';
+    }
+    if (r.lifts) {
+      chips += '<span class="chip"><b>' + esc(fmtNum(r.lifts)) + '</b><span class="unit">lifts</span></span>';
+    }
+
+    return '<a class="card" href="' + esc(href) + '" data-name="' + esc(r.full_name) + '">'
+      + '<div class="card-name">' + esc(r.full_name) + "</div>"
+      + '<div class="card-sub">' + sub + "</div>"
+      + (chips ? '<div class="chips">' + chips + "</div>" : "")
+      + "</a>";
+  }
+
+  function emptyHTML() {
+    return '<div class="empty">'
+      + '<span class="em-icon" aria-hidden="true">'
+      +   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+      +     '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'
+      +   '</svg>'
+      + '</span>'
+      + '<div class="em-title">No resorts found</div>'
+      + '<div class="em-sub">Try a different name, region, or place.</div>'
+      + "</div>";
+  }
+
+  function gridCardsHTML(list) {
+    var html = "";
+    for (var i = 0; i < list.length; i++) html += cardHTML(list[i]);
+    return html;
+  }
+
+  function byFullName(a, b) {
+    return String(a.full_name).localeCompare(String(b.full_name), "en");
+  }
+
+  function setResultMeta(titleText, n) {
+    resultTitle.textContent = titleText;
+    resultCount.textContent = n === 1 ? "1 resort" : fmtNum(n) + " resorts";
+  }
+
+  // Flat grid (Featured + Search): one card grid, no sub-sections.
+  function renderFlat(list, titleText) {
+    setResultMeta(titleText, list.length);
+    grid.classList.remove("sections");
+    grid.innerHTML = list.length ? gridCardsHTML(list) : emptyHTML();
+  }
+
+  // Region drill-down: cards grouped into sub-sections, each with a sub-heading.
+  function renderSections(sections, titleText, total) {
+    setResultMeta(titleText, total);
+    grid.classList.remove("sections");
+    if (!total) { grid.innerHTML = emptyHTML(); return; }
+    grid.classList.add("sections");
+    var html = "";
+    for (var i = 0; i < sections.length; i++) {
+      var s = sections[i];
+      html += '<section class="subsection">'
+        + '<div class="sub-head">'
+        +   '<span class="sub-title">' + esc(s.label) + '</span>'
+        +   '<span class="sub-count">' + esc(fmtNum(s.items.length)) + "</span>"
+        + '</div>'
+        + '<div class="grid">' + gridCardsHTML(s.items) + "</div>"
+        + "</section>";
+    }
+    grid.innerHTML = html;
+  }
+
+  // Group a region's resorts into sub-sections.
+  //  - default key = display country (US → "United States", else `state`/country name)
+  //  - SPECIAL CASE: if the region resolves to a single distinct country, sub-group
+  //    by `region` (e.g. Hokkaido / Japanese Alps) so there is still meaningful content.
+  function sectionsForRegion(list) {
+    // Determine distinct display countries to detect the single-country case.
+    var countrySet = {};
+    list.forEach(function (r) { countrySet[displayCountry(r)] = true; });
+    var distinctCountries = Object.keys(countrySet);
+    var singleCountry = distinctCountries.length === 1;
+
+    var groups = {};
+    list.forEach(function (r) {
+      var key = singleCountry
+        ? (r.region || "Other")
+        : displayCountry(r);
+      (groups[key] || (groups[key] = [])).push(r);
+    });
+
+    var keys = Object.keys(groups);
+    keys.sort(function (a, b) {
+      // "United States" first when present (only meaningful in the multi-country case).
+      if (!singleCountry) {
+        if (a === "United States" && b !== "United States") return -1;
+        if (b === "United States" && a !== "United States") return 1;
+      }
+      return a.localeCompare(b, "en");
+    });
+
+    return keys.map(function (k) {
+      groups[k].sort(byFullName);
+      return { label: k, items: groups[k] };
+    });
+  }
+
+  // ── view logic ───────────────────────────────────────────
+  function viewForPill(key) {
+    if (key === "__featured__") {
+      renderFlat(FEATURED, "Featured");
+    } else {
+      var list = RESORTS.filter(function (r) { return regionFor(r) === key; });
+      var sections = sectionsForRegion(list);
+      renderSections(sections, key, list.length);
+    }
+  }
+
+  function selectPill(key) {
+    current = key;
+    if (searching()) {
+      search.value = "";
+      searchShell.classList.remove("has-text");
+    }
+    syncPills();
+    viewForPill(key);
+  }
+
+  function runSearch() {
+    var q = search.value.trim().toLowerCase();
+    searchShell.classList.toggle("has-text", q.length > 0);
+
+    if (!q) {
+      syncPills();           // re-select current pill
+      viewForPill(current);  // restore the current pill's grid view
+      return;
+    }
+
+    syncPills(); // visually deselect all pills while searching
+    var terms = q.split(/\s+/);
+    var results = RESORTS.filter(function (r) {
+      var hay = (
+        (r.full_name || "") + " " +
+        (r.name || "") + " " +
+        (r.region || "") + " " +
+        (r.state || "") + " " +
+        displayCountry(r)
+      ).toLowerCase();
+      for (var i = 0; i < terms.length; i++) {
+        if (hay.indexOf(terms[i]) === -1) return false;
+      }
+      return true;
+    });
+    results.sort(byFullName);
+    renderFlat(results, "Search");
+  }
+
+  // ── generating overlay + navigation ──────────────────────
+  function isModifiedClick(e) {
+    return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1;
+  }
+
+  // ── terminal-style stepped progress animation ────────────
+  // Plays over ~28s, capping at 95%; the implicit jump to 100% happens when
+  // the report page finally loads and replaces this one.
+  var progressTimer = null;        // requestAnimationFrame / interval handle
+  var progressStart = 0;
+  var reducedMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var BAR_WIDTH = 20;              // block chars in the ASCII bar
+  var TOTAL_MS = 28000;            // full animation duration (caps at 95%)
+  var CAP_PCT = 95;
+
+  // Phases drive both the active label and which check lines have landed.
+  // start/end are fractions of TOTAL_MS.
+  var PHASES = [
+    { start: 0.00, end: 0.07, label: "resolving resort" },
+    { start: 0.07, end: 0.36, label: "fetching 6-day forecast" },
+    { start: 0.36, end: 0.79, label: "finding nearby stays" },
+    { start: 0.79, end: 1.00, label: "rendering report" }
+  ];
+  // Completed-step lines, revealed once their phase finishes.
+  var STEP_DONE = [
+    "resort resolved",
+    "forecast loaded",
+    "12 stays found",
+    "report rendered"   // shown only at the implicit 100% (rarely seen)
+  ];
+
+  function makeBar(pct) {
+    var filled = Math.round((pct / 100) * BAR_WIDTH);
+    if (filled > BAR_WIDTH) filled = BAR_WIDTH;
+    var solid = "";
+    for (var i = 0; i < filled; i++) solid += "█";
+    var empty = "";
+    for (var j = 0; j < BAR_WIDTH - filled; j++) empty += "░";
+    return "[" + solid + '<span class="empty">' + empty + "</span>]";
+  }
+
+  function renderProgress(pct, phaseIndex) {
+    var p = Math.min(CAP_PCT, Math.max(0, Math.round(pct)));
+    termBar.innerHTML = makeBar(p);
+    termPct.textContent = p + "%";
+
+    // Completed steps: every phase strictly before the active one.
+    var lines = "";
+    for (var i = 0; i < phaseIndex; i++) {
+      lines += '<div class="term-step"><span class="tick">✓</span>'
+        + '<span>' + esc(STEP_DONE[i]) + "</span></div>";
+    }
+    // Active step with a blinking cursor (skipped for reduced motion).
+    if (phaseIndex < PHASES.length) {
+      var cursor = reducedMotion ? "" : '<span class="cursor">▋</span>';
+      lines += '<div class="term-step active"><span class="tick">…</span>'
+        + '<span>' + esc(PHASES[phaseIndex].label) + " " + cursor + "</span></div>";
+      termLabel.innerHTML = "<b>" + esc(PHASES[phaseIndex].label) + "</b>";
+    }
+    termSteps.innerHTML = lines;
+  }
+
+  function phaseForFraction(f) {
+    for (var i = 0; i < PHASES.length; i++) {
+      if (f < PHASES[i].end) return i;
+    }
+    return PHASES.length - 1;
+  }
+
+  function stopProgress() {
+    if (progressTimer !== null) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+  }
+
+  // Reset and start the animation for a given resort name.
+  function startProgress(resortName) {
+    stopProgress();
+    termArg.textContent = '"' + resortName + '"';
+    progressStart = Date.now();
+
+    // Reduced motion: show the final stepped state immediately, no marquee.
+    if (reducedMotion) {
+      renderProgress(CAP_PCT, PHASES.length - 1);
+      return;
+    }
+
+    renderProgress(0, 0);
+    progressTimer = setInterval(function () {
+      var elapsed = Date.now() - progressStart;
+      var f = Math.min(1, elapsed / TOTAL_MS);
+      var pct = f * CAP_PCT;
+      renderProgress(pct, phaseForFraction(f));
+      if (f >= 1) stopProgress();   // hold at the 95% cap until navigation
+    }, 250);                         // ~4 updates/sec
+  }
+
+  // Show an error state inside the overlay; clicking it returns to the home.
+  function showOverlayError(message) {
+    stopProgress();
+    termLabel.innerHTML = "";
+    termArg.textContent = '""';
+    termSteps.innerHTML =
+      '<div class="term-step active"><span class="tick" style="color:var(--accent)">✗</span>'
+      + '<span>Couldn\'t load the report: ' + esc(message)
+      + ' — click to go back</span></div>';
+    overlay.style.cursor = "pointer";
+    overlay.addEventListener("click", dismissOverlayError);
+  }
+  function dismissOverlayError() {
+    overlay.removeEventListener("click", dismissOverlayError);
+    overlay.style.cursor = "";
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+
+  // Show the overlay naming the resort, kick off the progress animation, then
+  // fetch the report HTML in the background so the page (and the progress bar)
+  // keeps running — and swap the report document in once it arrives. A full
+  // window.location navigation would freeze the WebKit window and stall the
+  // animation, so we deliberately avoid it.
+  function generateReport(name, href) {
+    startProgress(name);
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden", "false");
+
+    fetch(href)
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(function (html) {
+        stopProgress();                 // stop the animation timer
+        document.open();
+        document.write(html);           // replace the page; the report's <script>s run
+        document.close();
+      })
+      .catch(function (err) {
+        showOverlayError(err && err.message ? err.message : "network error");
+      });
+  }
+
+  grid.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest("a.card") : null;
+    if (!a) return;
+    if (isModifiedClick(e)) return; // let cmd/ctrl-click open normally
+    e.preventDefault();
+    generateReport(a.getAttribute("data-name") || "", a.getAttribute("href"));
+  });
+
+  // ── I'm Feeling Lucky: random resort → same overlay + navigation ──
+  luckyBtn.addEventListener("click", function () {
+    if (!RESORTS.length) return;
+    var r = RESORTS[Math.floor(Math.random() * RESORTS.length)];
+    var href = "/report?resort=" + encodeURIComponent(r.full_name);
+    generateReport(r.full_name, href);
+  });
+
+  // ── wire up search field ─────────────────────────────────
+  search.addEventListener("input", runSearch);
+  search.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && searching()) {
+      search.value = "";
+      runSearch();
+    }
+  });
+  clearBtn.addEventListener("click", function () {
+    search.value = "";
+    runSearch();
+    search.focus();
+  });
+
+  // ── Map mode (lazy Leaflet) ──────────────────────────────
+  // The map is built the first time Map is shown (it's initialized while the
+  // shell is display:none, so invalidateSize() is required on each show). We
+  // keep the map + tile layer on `window` so the theme toggle can swap tiles.
+  var mapBuilt = false;
+
+  var TILE_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  var TILE_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+  var TILE_ATTR  = "&copy; OpenStreetMap, &copy; CARTO";
+
+  function tileURLForTheme() {
+    return currentTheme() === "dark" ? TILE_DARK : TILE_LIGHT;
+  }
+
+  // Re-point the live tile layer at the matching CARTO basemap. No-op until the
+  // map has been built (the toggle may be used before Map mode is ever opened).
+  function swapMapTiles() {
+    if (!mapBuilt || !window.__skicomTiles) return;
+    window.__skicomTiles.setUrl(tileURLForTheme());
+  }
+
+  function buildMap() {
+    if (mapBuilt || typeof L === "undefined") return;
+    mapBuilt = true;
+
+    var map = L.map("resortMap", {
+      zoomControl: true,
+      scrollWheelZoom: true,
+      worldCopyJump: true
+    });
+    var tiles = L.tileLayer(tileURLForTheme(), {
+      maxZoom: 18,
+      attribution: TILE_ATTR
+    }).addTo(map);
+
+    // Ski-piste overlay (OpenSnowMap) — transparent raster tiles rendering OSM
+    // ski runs + lifts (OpenSkiMap-style). Added AFTER the base so it layers
+    // above it, and BEFORE the markers so they stay clickable on top. Always on
+    // in both themes; the theme toggle only swaps the BASE layer below.
+    var pistes = L.tileLayer("https://www.opensnowmap.org/pistes/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      opacity: 1,
+      attribution: "&copy; OpenSnowMap.org"
+    }).addTo(map);
+
+    window.__skicomMap = map;
+    window.__skicomTiles = tiles;
+    window.__skicomPistes = pistes;
+
+    // One square pixel marker per resort (divIcon — clay block, white border).
+    var pixelIcon = L.divIcon({
+      className: "map-pin-wrap",
+      html: '<span class="map-pin"></span>',
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],      // center the 12×12 square on the coordinate
+      popupAnchor: [0, -8]
+    });
+
+    var bounds = [];
+    RESORTS.forEach(function (r) {
+      var lat = Number(r.lat), lon = Number(r.lon);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      bounds.push([lat, lon]);
+
+      var marker = L.marker([lat, lon], { icon: pixelIcon }).addTo(map);
+
+      // Build + open a pixel-card popup on click, then wire its button to the
+      // existing report flow (real listener — popup HTML can't see this scope).
+      marker.on("click", function () {
+        var fullName = r.full_name || r.name || "";
+        var sub = r.region ? (r.region + " · " + placeLabel(r)) : placeLabel(r);
+
+        // Basic-info rows from the resort object; omit missing/zero values.
+        // Value is rendered in Hanken Grotesk (Press Start 2P is hard to read
+        // for numbers); the tiny label stays pixel.
+        var rows = "";
+        function infoRow(label, value, unit, clay) {
+          rows += '<div class="map-pop-k">' + esc(label) + "</div>"
+            + '<div class="map-pop-v' + (clay ? " clay" : "") + '">'
+            + esc(fmtNum(value))
+            + (unit ? '<span class="unit">' + esc(unit) + "</span>" : "")
+            + "</div>";
+        }
+        if (r.elevation_ft) infoRow("Elevation", r.elevation_ft, "ft", true);
+        if (r.vertical_ft)  infoRow("Vertical", r.vertical_ft, "ft", true);
+        if (r.lifts)        infoRow("Lifts", r.lifts, "", false);
+        if (r.acres)        infoRow("Acres", r.acres, "", false);
+
+        var html =
+          '<div class="map-pop-win">'
+          +   '<div class="map-pop-bar">'
+          +     '<span class="map-pop-dots"><span></span><span></span><span></span></span>'
+          +     '<span class="map-pop-title">' + esc(fullName) + "</span>"
+          +   "</div>"
+          +   '<div class="map-pop-body">'
+          +     '<div class="map-pop-sub">' + esc(sub) + "</div>"
+          +     (rows ? '<div class="map-pop-info">' + rows + "</div>" : "")
+          +     '<button type="button" class="map-pop-btn">Open Report</button>'
+          +   "</div>"
+          + "</div>";
+        marker.bindPopup(html, {
+          closeButton: true,
+          autoPan: true,
+          minWidth: 192,
+          className: "map-pop"     // strips default content padding for the bar
+        }).openPopup();
+
+        // The popup DOM exists after open; attach the handler now.
+        var el = marker.getPopup().getElement();
+        var btn = el && el.querySelector(".map-pop-btn");
+        if (btn) {
+          btn.addEventListener("click", function () {
+            generateReport(fullName, "/report?resort=" + encodeURIComponent(fullName));
+          });
+        }
+      });
+    });
+
+    // Fit to all markers with a little padding; fall back to a world-ish view.
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [28, 28], maxZoom: 6 });
+    } else {
+      map.setView([30, 0], 2);
+    }
+  }
+
+  function showMap() {
+    buildMap();
+    mapShell.classList.add("show");
+    mapShell.setAttribute("aria-hidden", "false");
+    // The map was built while hidden; size it to the now-visible container.
+    if (window.__skicomMap) {
+      window.__skicomMap.invalidateSize();
+      // A second pass after layout settles avoids a half-painted first show.
+      setTimeout(function () {
+        if (window.__skicomMap) window.__skicomMap.invalidateSize();
+      }, 60);
+    }
+  }
+
+  function hideMap() {
+    mapShell.classList.remove("show");
+    mapShell.setAttribute("aria-hidden", "true");
+  }
+
+  // Toggle the whole map MODE. When on: hide the search row, the segmented pill
+  // row, the result header, and the grid, then show the full-width map and the
+  // ‹ HOME button (swapping out MAP). When off: restore the normal home view and
+  // re-render whatever the current pill / search dictates. This is fully
+  // client-side — no navigation, no window.location change.
+  function setMapMode(on) {
+    mapMode = on;
+    var head = document.querySelector(".result-head");
+    var segScroll = document.querySelector(".seg-scroll");
+    var searchRow = document.querySelector(".search-row");
+
+    if (on) {
+      grid.style.display = "none";
+      if (head) head.style.display = "none";
+      if (segScroll) segScroll.style.display = "none";
+      if (searchRow) searchRow.style.display = "none";
+      // Swap the top-left button: hide MAP, show ‹ HOME.
+      mapBtn.hidden = true;
+      homeBtn.hidden = false;
+      showMap();
+    } else {
+      hideMap();
+      grid.style.display = "";
+      if (head) head.style.display = "";
+      if (segScroll) segScroll.style.display = "";
+      if (searchRow) searchRow.style.display = "";
+      // Swap back: show MAP, hide ‹ HOME.
+      homeBtn.hidden = true;
+      mapBtn.hidden = false;
+      // Restore the prior view sensibly: honor an active search, else the pill.
+      if (searching()) {
+        runSearch();
+      } else {
+        syncPills();
+        viewForPill(current);
+      }
+    }
+  }
+
+  function enterMap() { setMapMode(true); }
+  function exitMap() { setMapMode(false); }
+
+  mapBtn.addEventListener("click", enterMap);
+  homeBtn.addEventListener("click", exitMap);
+
+  // ── init ─────────────────────────────────────────────────
+  buildSeg();
+  viewForPill(current);
+})();
+</script>
+
+</body>
+</html>

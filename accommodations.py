@@ -3,7 +3,10 @@
 import requests
 import math
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 
 def fetch_accommodations(lat: float, lon: float, radius_m: int = 15000, max_results: int = 12) -> list[dict]:
@@ -26,9 +29,19 @@ def fetch_accommodations(lat: float, lon: float, radius_m: int = 15000, max_resu
     );
     out center body;
     """
-    resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    last_err = None
+    for url in OVERPASS_URLS:
+        try:
+            resp = requests.post(url, data={"data": query}, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            break
+        except (requests.RequestException, ValueError) as e:
+            # ValueError covers JSONDecodeError — a malformed 200 (e.g. an
+            # Overpass rate-limit page) should fall through to the next mirror.
+            last_err = e
+    else:
+        raise last_err
 
     accommodations = []
     seen_names = set()
