@@ -16,7 +16,7 @@ llm:
 
 # Weather settings (Open-Meteo, no API key needed)
 weather:
-  forecast_days: 7
+  forecast_days: 6
 
 # Accommodation search radius in meters
 accommodations:

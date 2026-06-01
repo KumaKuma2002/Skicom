@@ -2,7 +2,7 @@
 
 import time
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 MAX_RETRIES = 3
@@ -96,13 +96,10 @@ def extract_snow_depth(raw: dict, resort: dict | None = None) -> dict:
     api_elev_m = raw.get("elevation", 0) or 0
     api_elev_ft = round(api_elev_m * 3.281)
 
-    current_depth_m = None
-    for v in depths:
-        if v is not None and v >= 0:
-            current_depth_m = v
-            break
+    valid_depths = [v for v in depths if v is not None and v > 0]
+    current_depth_m = max(valid_depths) if valid_depths else None
 
-    if current_depth_m is None or current_depth_m <= 0:
+    if current_depth_m is None:
         return {"base_depth_in": None, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
 
     depth_in = round(current_depth_m * 39.37)
@@ -140,12 +137,19 @@ def extract_snow_depth(raw: dict, resort: dict | None = None) -> dict:
         return {"base_depth_in": depth_in, "summit_depth_in": None, "depth_source_ft": api_elev_ft}
 
 
-def get_full_forecast(lat: float, lon: float, days: int = 7, resort: dict | None = None) -> dict:
+def get_full_forecast(lat: float, lon: float, days: int = 6, resort: dict | None = None) -> dict:
     """One-call convenience: fetch + parse + summarize."""
     raw = fetch_forecast(lat, lon, days)
     daily = parse_daily_forecast(raw)
     snow = compute_snow_summary(daily)
     depth = extract_snow_depth(raw, resort)
+
+    # Attach per-day snow depth from hourly data (for trend charts)
+    hourly_depth = raw.get("hourly", {}).get("snow_depth", [])
+    for i, day in enumerate(daily):
+        chunk = [v for v in hourly_depth[i * 24:(i + 1) * 24] if v is not None and v >= 0]
+        day["snow_depth_in"] = round(max(chunk) * 39.37, 1) if chunk else 0
+
     return {
         "daily": daily,
         "snow_summary": {**snow, **depth},
